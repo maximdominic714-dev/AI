@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My AI Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+        
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+        }
+        
+        .chat-container {
+            scrollbar-width: thin;
+            scrollbar-color: #4b5563 #1f2937;
+        }
+        
+        .chat-container::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .chat-container::-webkit-scrollbar-thumb {
+            background-color: #4b5563;
+            border-radius: 20px;
+        }
+        
+        .message-bubble {
+            max-width: 80%;
+            padding: 14px 18px;
+            border-radius: 20px;
+            position: relative;
+        }
+        
+        .user-bubble {
+            background: #3b82f6;
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+        
+        .ai-bubble {
+            background: #374151;
+            color: white;
+            border-bottom-left-radius: 4px;
+        }
+    </style>
+</head>
+<body class="bg-gray-950 text-gray-100">
+    <div class="flex h-screen overflow-hidden">
+        <!-- Sidebar -->
+        <div class="w-72 bg-gray-900 border-r border-gray-800 flex flex-col">
+            <!-- Logo/Header -->
+            <div class="p-4 border-b border-gray-800">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+                        <i class="fa-solid fa-brain text-white text-xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-semibold">My AI</h1>
+                        <p class="text-xs text-gray-500">Powered by Grok / OpenAI</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- New Chat -->
+            <div class="p-4">
+                <button onclick="newChat()" 
+                        class="w-full flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-700 transition-colors text-white py-3 px-4 rounded-2xl font-medium">
+                    <i class="fa-solid fa-plus"></i>
+                    <span>New Chat</span>
+                </button>
+            </div>
+
+            <!-- Chat History -->
+            <div class="flex-1 overflow-y-auto px-3 chat-container" id="chat-history">
+                <!-- Populated by JS -->
+            </div>
+
+            <!-- Bottom Navigation -->
+            <div class="border-t border-gray-800 p-4 space-y-2">
+                <a href="#" onclick="showRules()" 
+                   class="flex items-center gap-3 px-4 py-3 hover:bg-gray-800 rounded-2xl text-gray-300 hover:text-white transition-colors">
+                    <i class="fa-solid fa-book w-5"></i>
+                    <span class="font-medium">AI Rules</span>
+                </a>
+                
+                <a href="#" onclick="showFiles()" 
+                   class="flex items-center gap-3 px-4 py-3 hover:bg-gray-800 rounded-2xl text-gray-300 hover:text-white transition-colors">
+                    <i class="fa-solid fa-folder w-5"></i>
+                    <span class="font-medium">AI Files</span>
+                </a>
+                
+                <div class="pt-4 border-t border-gray-800 text-xs text-gray-500 px-4">
+                    Made for GitHub Pages
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Chat Area -->
+        <div class="flex-1 flex flex-col">
+            <!-- Chat Header -->
+            <div class="h-14 border-b border-gray-800 flex items-center px-6 justify-between bg-gray-900">
+                <div class="flex items-center gap-3">
+                    <div id="chat-title" class="font-medium">New Conversation</div>
+                </div>
+                <div class="flex items-center gap-4 text-sm">
+                    <div class="flex items-center gap-2 text-emerald-400">
+                        <div class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
+                        Online
+                    </div>
+                </div>
+            </div>
+
+            <!-- Messages -->
+            <div id="chat-messages" class="flex-1 overflow-y-auto p-6 space-y-8 chat-container bg-gray-950">
+                <!-- Welcome Message -->
+                <div class="max-w-2xl mx-auto text-center pt-12">
+                    <div class="w-16 h-16 mx-auto bg-gradient-to-br from-blue-500 to-purple-600 rounded-3xl flex items-center justify-center mb-6">
+                        <i class="fa-solid fa-brain text-4xl text-white"></i>
+                    </div>
+                    <h2 class="text-3xl font-semibold mb-2">Hello! How can I help you today?</h2>
+                    <p class="text-gray-400">Ask me anything. I'm here to assist.</p>
+                </div>
+            </div>
+
+            <!-- Input Area -->
+            <div class="p-6 border-t border-gray-800 bg-gray-900">
+                <div class="max-w-3xl mx-auto">
+                    <div class="relative">
+                        <textarea id="user-input" 
+                                  rows="1"
+                                  class="w-full bg-gray-800 border border-gray-700 focus:border-blue-500 rounded-3xl py-5 px-7 pr-24 resize-none text-base outline-none"
+                                  placeholder="Type your message..."></textarea>
+                        
+                        <button onclick="sendMessage()"
+                                class="absolute right-3 bottom-3 bg-blue-600 hover:bg-blue-500 transition-colors w-10 h-10 rounded-2xl flex items-center justify-center">
+                            <i class="fa-solid fa-paper-plane"></i>
+                        </button>
+                    </div>
+                    <p class="text-center text-[10px] text-gray-500 mt-4">
+                        This is a demo interface. Responses are simulated.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Sidebar (Optional Info) -->
+        <div class="w-80 border-l border-gray-800 bg-gray-900 hidden lg:flex flex-col">
+            <div class="p-6">
+                <h3 class="uppercase text-xs tracking-widest text-gray-500 mb-4">Quick Actions</h3>
+                <div class="grid grid-cols-2 gap-3">
+                    <button onclick="quickPrompt('Explain quantum computing simply')" 
+                            class="p-4 bg-gray-800 hover:bg-gray-700 rounded-2xl text-left transition-colors">
+                        <span class="text-sm">Quantum Computing</span>
+                    </button>
+                    <button onclick="quickPrompt('Write a Python function')" 
+                            class="p-4 bg-gray-800 hover:bg-gray-700 rounded-2xl text-left transition-colors">
+                        <span class="text-sm">Code Help</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rules Modal -->
+    <div id="rules-modal" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+        <div class="bg-gray-900 rounded-3xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden">
+            <div class="p-6 border-b border-gray-800 flex items-center justify-between">
+                <h2 class="text-2xl font-semibold">AI Rules &amp; Guidelines</h2>
+                <button onclick="hideRules()" class="text-gray-400 hover:text-white">
+                    <i class="fa-solid fa-xmark text-2xl"></i>
+                </button>
+            </div>
+            <div class="p-8 overflow-y-auto max-h-[70vh]" id="rules-content">
+                <p class="text-gray-300">You can edit this section with your own rules in <strong>rules.html</strong> or directly here.</p>
+                <div class="mt-8 space-y-6">
+                    <div class="bg-gray-800 p-6 rounded-2xl">
+                        <h4 class="font-medium mb-3">Example Rules</h4>
+                        <ul class="list-disc list-inside space-y-2 text-gray-400">
+                            <li>Be helpful and truthful</li>
+                            <li>Respect user privacy</li>
+                            <li>Avoid harmful content</li>
+                            <li>Etc...</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="p-6 border-t border-gray-800 text-center">
+                <button onclick="hideRules()" 
+                        class="px-8 py-3 bg-gray-800 hover:bg-gray-700 rounded-2xl">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Files Modal -->
+    <div id="files-modal" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+        <div class="bg-gray-900 rounded-3xl max-w-lg w-full mx-4">
+            <div class="p-6 border-b border-gray-800 flex items-center justify-between">
+                <h2 class="text-2xl font-semibold">AI Files Directory</h2>
+                <button onclick="hideFiles()" class="text-gray-400 hover:text-white">
+                    <i class="fa-solid fa-xmark text-2xl"></i>
+                </button>
+            </div>
+            <div class="p-8">
+                <div class="bg-gray-950 border border-gray-800 rounded-2xl p-6 font-mono text-sm">
+                    <div class="text-emerald-400">ai-files/</div>
+                    <div class="pl-6 text-gray-400">
+                        ├── system-prompt.txt<br>
+                        ├── custom-rules.md<br>
+                        ├── knowledge-base/<br>
+                        ├── config.json<br>
+                        └── models/
+                    </div>
+                </div>
+                <p class="text-xs text-gray-500 mt-6 text-center">
+                    Create a folder called <strong>ai-files</strong> in your repository.<br>
+                    Place your prompts, rules, and configuration files there.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentChatId = null;
+        let chats = {};
+
+        function sendMessage() {
+            const input = document.getElementById('user-input');
+            const message = input.value.trim();
+            
+            if (!message) return;
+
+            // Add user message
+            addMessage('user', message);
+            
+            // Clear input
+            input.value = '';
+
+            // Simulate AI response
+            setTimeout(() => {
+                const responses = [
+                    "That's an interesting question! Let me think about that.",
+                    "Here's what I know about this topic...",
+                    "Great point. Here's a detailed explanation.",
+                    "I can help with that. Here's my response:"
+                ];
+                const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+                addMessage('ai', randomResponse + " (This is a demo response. Connect to real API for production.)");
+            }, 800);
+        }
+
+        function addMessage(sender, text) {
+            const container = document.getElementById('chat-messages');
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `flex ${sender === 'user' ? 'justify-end' : 'justify-start'}`;
+            
+            messageDiv.innerHTML = `
+                <div class="${sender === 'user' ? 'user-bubble' : 'ai-bubble'} message-bubble">
+                    ${text}
+                </div>
+            `;
+            
+            container.appendChild(messageDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function newChat() {
+            document.getElementById('chat-messages').innerHTML = `
+                <div class="max-w-2xl mx-auto text-center pt-12">
+                    <div class="w-16 h-16 mx-auto bg-gradient-to-br from-blue-500 to-purple-600 rounded-3xl flex items-center justify-center mb-6">
+                        <i class="fa-solid fa-brain text-4xl text-white"></i>
+                    </div>
+                    <h2 class="text-3xl font-semibold mb-2">New Conversation</h2>
+                    <p class="text-gray-400">What would you like to talk about?</p>
+                </div>
+            `;
+            document.getElementById('chat-title').textContent = 'New Conversation';
+        }
+
+        function quickPrompt(prompt) {
+            document.getElementById('chat-messages').innerHTML = '';
+            addMessage('user', prompt);
+            setTimeout(() => {
+                addMessage('ai', `You asked about: "${prompt}". This is a simulated response.`);
+            }, 600);
+        }
+
+        function showRules() {
+            document.getElementById('rules-modal').classList.remove('hidden');
+        }
+
+        function hideRules() {
+            document.getElementById('rules-modal').classList.add('hidden');
+        }
+
+        function showFiles() {
+            document.getElementById('files-modal').classList.remove('hidden');
+        }
+
+        function hideFiles() {
+            document.getElementById('files-modal').classList.add('hidden');
+        }
+
+        // Keyboard support
+        document.getElementById('user-input').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        // Tailwind script already included
+        console.log("%c✅ AI Chat Website Ready! Customize as needed.", "color: #3b82f6; font-size: 14px");
+    </script>
+</body>
+</html>
