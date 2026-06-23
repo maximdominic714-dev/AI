@@ -3,53 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Qwen2.5-7B • Local AI</title>
+    <title>My AI - Qwen2.5-7B</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         body { font-family: 'Inter', system-ui, sans-serif; }
-        .chat-container { scrollbar-width: thin; }
+        .chat-container::-webkit-scrollbar { width: 6px; }
+        .chat-container::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 20px; }
     </style>
 </head>
 <body class="bg-gray-950 text-gray-100 h-screen flex overflow-hidden">
 
-    <!-- Sidebar (same nice design) -->
-    <div class="w-80 bg-gray-900 border-r border-gray-800 flex flex-col">
+    <!-- Sidebar -->
+    <div class="w-72 bg-gray-900 border-r border-gray-800 flex flex-col">
         <div class="p-6 border-b border-gray-800">
             <div class="flex items-center gap-3">
-                <div class="w-10 h-10 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-2xl flex items-center justify-center">
-                    <i class="fa-solid fa-brain text-2xl"></i>
+                <div class="w-9 h-9 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center">
+                    <i class="fa-solid fa-brain"></i>
                 </div>
-                <div>
-                    <h1 class="text-2xl font-bold">Qwen2.5-7B</h1>
-                    <p class="text-emerald-400 text-sm">Local AI • LM Studio</p>
-                </div>
+                <h1 class="text-2xl font-bold">My AI</h1>
             </div>
+            <p class="text-xs text-emerald-400 mt-1">Qwen2.5-7B Local</p>
         </div>
+
         <div class="p-4">
-            <button onclick="newChat()" class="w-full py-3.5 bg-violet-600 hover:bg-violet-500 rounded-2xl font-semibold">
-                <i class="fa-solid fa-plus mr-2"></i>New Chat
+            <button onclick="newChat()" class="w-full py-3.5 bg-white text-black rounded-2xl font-semibold flex items-center justify-center gap-2 hover:bg-gray-100">
+                <i class="fa-solid fa-plus"></i> New Chat
             </button>
         </div>
     </div>
 
     <!-- Main Area -->
     <div class="flex-1 flex flex-col">
-        <div class="h-16 border-b border-gray-800 bg-gray-900 px-8 flex items-center justify-between">
-            <h2 class="font-semibold">Qwen2.5-7B Instruct</h2>
-            <div id="status" class="text-sm text-yellow-400">Connecting to local server...</div>
+        <div class="h-16 bg-gray-900 border-b border-gray-800 px-8 flex items-center justify-between">
+            <h2 class="font-medium">Qwen2.5-7B Instruct</h2>
+            <div id="status" class="text-sm px-4 py-1 bg-gray-800 rounded-full">Not Connected</div>
         </div>
 
-        <div id="chat-messages" class="flex-1 overflow-y-auto p-8 space-y-8 bg-gray-950 chat-container"></div>
+        <div id="chat-messages" class="flex-1 overflow-y-auto p-8 space-y-8 chat-container bg-gray-950"></div>
 
         <div class="p-8 bg-gray-900 border-t border-gray-800">
-            <div class="max-w-4xl mx-auto relative">
+            <div class="max-w-3xl mx-auto">
                 <textarea id="user-input" rows="1" 
-                    class="w-full bg-gray-800 border border-gray-700 focus:border-violet-500 rounded-3xl py-6 px-8 text-lg resize-none"
-                    placeholder="Type your message..."></textarea>
+                    class="w-full bg-gray-800 border border-gray-700 rounded-3xl py-6 px-8 resize-none focus:border-purple-500 outline-none text-lg"
+                    placeholder="Send a message..."></textarea>
                 <button onclick="sendMessage()" 
-                        class="absolute right-6 bottom-6 bg-violet-600 hover:bg-violet-500 w-12 h-12 rounded-2xl flex items-center justify-center">
-                    <i class="fa-solid fa-paper-plane"></i>
+                        class="mt-4 bg-purple-600 hover:bg-purple-500 px-10 py-3 rounded-2xl font-medium">
+                    Send
                 </button>
             </div>
         </div>
@@ -60,64 +60,42 @@
 
     async function sendMessage() {
         const input = document.getElementById('user-input');
-        const message = input.value.trim();
-        if (!message) return;
+        const msg = input.value.trim();
+        if (!msg) return;
 
-        addMessage('user', message);
+        addMessage('user', msg);
         input.value = '';
 
         const typingId = addTypingIndicator();
 
-        // Try multiple possible addresses
-        const urls = [
-            'http://127.0.0.1:1234/v1/chat/completions',
-            'http://localhost:1234/v1/chat/completions'
-        ];
+        try {
+            const res = await fetch('http://127.0.0.1:1234/v1/chat/completions', {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    messages: [
+                        { role: "system", content: "You are a helpful, intelligent, and friendly AI assistant." },
+                        ...chatHistory,
+                        { role: "user", content: msg }
+                    ],
+                    temperature: 0.7,
+                    max_tokens: 2048
+                })
+            });
 
-        let success = false;
+            const data = await res.json();
+            const reply = data.choices[0].message.content;
 
-        for (let url of urls) {
-            try {
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        model: "qwen2.5-7b",
-                        messages: [
-                            { role: "system", content: "You are Qwen2.5-7B-Instruct, a helpful, honest and intelligent AI." },
-                            ...chatHistory,
-                            { role: "user", content: message }
-                        ],
-                        temperature: 0.7,
-                        max_tokens: 2048
-                    })
-                });
-
-                if (response.ok) {
-                    const data = await response.json();
-                    const aiReply = data.choices[0].message.content;
-
-                    removeTypingIndicator(typingId);
-                    addMessage('ai', aiReply);
-
-                    chatHistory.push({ role: "user", content: message });
-                    chatHistory.push({ role: "assistant", content: aiReply });
-                    success = true;
-                    document.getElementById('status').innerHTML = '✅ Connected';
-                    break;
-                }
-            } catch (e) {
-                console.log(`Failed with ${url}`);
-            }
-        }
-
-        if (!success) {
             removeTypingIndicator(typingId);
-            addMessage('ai', `❌ Could not connect to LM Studio.<br>
-                <br>Make sure:<br>
-                • Server is running<br>
-                • CORS is enabled in LM Studio<br>
-                • Port is 1234`);
+            addMessage('ai', reply);
+
+            chatHistory.push({ role: "user", content: msg });
+            chatHistory.push({ role: "assistant", content: reply });
+            document.getElementById('status').innerHTML = '✅ Connected';
+        } catch (e) {
+            removeTypingIndicator(typingId);
+            addMessage('ai', `<strong>Connection Failed</strong><br><br>Make sure LM Studio server is running and CORS is enabled.`);
+            document.getElementById('status').innerHTML = '❌ Not Connected';
         }
     }
 
@@ -126,7 +104,7 @@
         const div = document.createElement('div');
         div.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'}`;
         div.innerHTML = `
-            <div class="${role === 'user' ? 'bg-violet-600' : 'bg-gray-800'} px-6 py-4 rounded-3xl max-w-[80%]">
+            <div class="${role === 'user' ? 'bg-purple-600' : 'bg-gray-800'} px-6 py-4 rounded-3xl max-w-[80%]">
                 ${content}
             </div>
         `;
@@ -140,7 +118,7 @@
         const div = document.createElement('div');
         div.id = id;
         div.className = "flex justify-start";
-        div.innerHTML = `<div class="bg-gray-800 px-6 py-4 rounded-3xl">Qwen is thinking<span class="animate-pulse">...</span></div>`;
+        div.innerHTML = `<div class="bg-gray-800 px-6 py-4 rounded-3xl">Thinking<span class="animate-pulse">...</span></div>`;
         container.appendChild(div);
         container.scrollTop = container.scrollHeight;
         return id;
@@ -153,11 +131,15 @@
 
     function newChat() {
         chatHistory = [];
-        document.getElementById('chat-messages').innerHTML = '';
-        addMessage('ai', "Hello! I'm ready. How can I help you today?");
+        document.getElementById('chat-messages').innerHTML = `
+            <div class="max-w-2xl mx-auto text-center mt-20">
+                <div class="text-6xl mb-6">👋</div>
+                <h2 class="text-4xl font-bold mb-3">Hello there!</h2>
+                <p class="text-gray-400">I'm running locally on your computer.</p>
+            </div>
+        `;
     }
 
-    // Keyboard support
     document.getElementById('user-input').addEventListener('keydown', e => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
@@ -165,10 +147,7 @@
         }
     });
 
-    window.onload = () => {
-        newChat();
-        document.getElementById('status').textContent = 'Trying to connect...';
-    };
+    window.onload = newChat;
 </script>
 </body>
 </html>
