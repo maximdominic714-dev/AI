@@ -3,60 +3,77 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Free Local Qwen</title>
+    <title>Qwen2.5 GGUF Chat</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@wllama/wllama@latest/dist/wllama.js"></script>
 </head>
 <body class="bg-gray-950 text-gray-100 h-screen flex flex-col">
     <div class="p-6 bg-gray-900 border-b border-gray-800">
-        <h1 class="text-2xl font-bold">Qwen2.5 Local (Free)</h1>
-        <p id="status" class="text-yellow-400 mt-1">Loading model...</p>
+        <h1 class="text-3xl font-bold">Local GGUF Chat (Qwen2.5)</h1>
+        <p id="status" class="text-yellow-400 mt-2">Select your GGUF file to start</p>
     </div>
 
-    <div id="chat" class="flex-1 overflow-auto p-6 space-y-8"></div>
+    <div class="flex-1 p-6 overflow-auto" id="chat"></div>
 
     <div class="p-6 bg-gray-900 border-t border-gray-800">
-        <textarea id="input" rows="2" class="w-full bg-gray-800 border border-gray-700 rounded-3xl p-5 focus:outline-none focus:border-blue-500" placeholder="Type here..."></textarea>
-        <button onclick="sendMessage()" class="mt-4 bg-blue-600 hover:bg-blue-500 px-8 py-3 rounded-2xl">Send</button>
+        <input type="file" id="file-input" accept=".gguf" class="hidden">
+        <button onclick="document.getElementById('file-input').click()" 
+                class="bg-gray-700 hover:bg-gray-600 px-6 py-3 rounded-2xl mb-4">
+            📁 Select GGUF File
+        </button>
+        
+        <textarea id="input" rows="3" class="w-full bg-gray-800 rounded-3xl p-5 hidden" placeholder="Type your message..."></textarea>
+        <button onclick="sendMessage()" class="mt-3 bg-blue-600 px-10 py-3 rounded-2xl hidden" id="send-btn">Send</button>
     </div>
 
     <script>
-        let generator = null;
+        let wllama = null;
 
-        async function loadModel() {
+        document.getElementById('file-input').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
             const status = document.getElementById('status');
-            try {
-                status.textContent = "Downloading model (~1.5GB, first time only)...";
+            status.textContent = `Loading ${file.name}... (this may take a while)`;
 
-                generator = await pipeline('text-generation', 'Xenova/Qwen2.5-3B-Instruct', {
-                    device: 'webgpu',
-                    dtype: 'q4',
-                    progress_callback: (data) => {
-                        if (data.progress) status.textContent = `Loading: ${Math.round(data.progress)}%`;
+            try {
+                wllama = new Wllama();
+
+                await wllama.loadModelFromFile(file, {
+                    progressCallback: (progress) => {
+                        status.textContent = `Loading model: ${Math.round(progress * 100)}%`;
                     }
                 });
 
-                status.textContent = "✅ Model Ready - No tokens, completely free";
-                addMessage("ai", "Hello! I'm running locally. No API costs. Ask me anything.");
-            } catch (e) {
-                console.error(e);
-                status.textContent = "❌ Error. Try Chrome and refresh.";
+                status.innerHTML = `✅ Loaded: <span class="text-emerald-400">${file.name}</span>`;
+                
+                // Show chat input
+                document.getElementById('input').classList.remove('hidden');
+                document.getElementById('send-btn').classList.remove('hidden');
+                
+                addMessage('ai', `Model loaded successfully! Ask me anything.`);
+            } catch (err) {
+                console.error(err);
+                status.textContent = "❌ Failed to load model. Try a smaller GGUF file.";
             }
-        }
+        });
 
         async function sendMessage() {
             const input = document.getElementById('input');
             const text = input.value.trim();
-            if (!text || !generator) return;
+            if (!text || !wllama) return;
 
-            addMessage("user", text);
+            addMessage('user', text);
             input.value = "";
 
-            const thinking = addMessage("ai", "Thinking...");
+            const thinking = addMessage('ai', 'Thinking...');
 
             try {
-                const output = await generator(text, { max_new_tokens: 512, temperature: 0.7 });
-                thinking.textContent = output[0].generated_text;
+                const result = await wllama.createCompletion(text, {
+                    nPredict: 1024,
+                    temperature: 0.7,
+                });
+                thinking.textContent = result.text;
             } catch (err) {
                 thinking.textContent = "Error generating response.";
             }
@@ -65,14 +82,22 @@
         function addMessage(role, content) {
             const chat = document.getElementById('chat');
             const div = document.createElement('div');
-            div.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'}`;
-            div.innerHTML = `<div class="max-w-[80%] px-6 py-4 rounded-3xl ${role === 'user' ? 'bg-blue-600' : 'bg-gray-800'}">${content}</div>`;
+            div.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'} mb-6`;
+            div.innerHTML = `
+                <div class="max-w-[80%] px-6 py-4 rounded-3xl ${role === 'user' ? 'bg-blue-600' : 'bg-gray-800'}">
+                    ${content}
+                </div>`;
             chat.appendChild(div);
             chat.scrollTop = chat.scrollHeight;
-            return div.querySelector('div');
         }
 
-        window.onload = loadModel;
+        // Enter key support
+        document.getElementById('input').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
     </script>
 </body>
 </html>
