@@ -3,96 +3,64 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Qwen2.5 GGUF Chat</title>
+    <title>Qwen2.5 Local</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@wllama/wllama@latest/dist/wllama.js"></script>
 </head>
 <body class="bg-gray-950 text-gray-100 h-screen flex flex-col">
-    <div class="p-6 bg-gray-900 border-b border-gray-800">
-        <h1 class="text-3xl font-bold">Local GGUF Chat (Qwen2.5)</h1>
-        <p id="status" class="text-yellow-400 mt-2">Select your GGUF file to start</p>
+    <div class="bg-gray-900 p-6 border-b border-gray-800">
+        <h1 class="text-3xl font-bold">Qwen2.5-7B Uncensored (Local)</h1>
+        <p class="text-emerald-400">Running through LM Studio • 0 token cost</p>
     </div>
 
-    <div class="flex-1 p-6 overflow-auto" id="chat"></div>
+    <div id="chat" class="flex-1 p-8 overflow-auto space-y-6"></div>
 
-    <div class="p-6 bg-gray-900 border-t border-gray-800">
-        <input type="file" id="file-input" accept=".gguf" class="hidden">
-        <button onclick="document.getElementById('file-input').click()" 
-                class="bg-gray-700 hover:bg-gray-600 px-6 py-3 rounded-2xl mb-4">
-            📁 Select GGUF File
-        </button>
-        
-        <textarea id="input" rows="3" class="w-full bg-gray-800 rounded-3xl p-5 hidden" placeholder="Type your message..."></textarea>
-        <button onclick="sendMessage()" class="mt-3 bg-blue-600 px-10 py-3 rounded-2xl hidden" id="send-btn">Send</button>
+    <div class="p-8 bg-gray-900 border-t border-gray-800">
+        <textarea id="input" rows="3" class="w-full bg-gray-800 rounded-3xl p-6 text-lg" placeholder="Type your message..."></textarea>
+        <button onclick="sendMessage()" class="mt-4 bg-blue-600 hover:bg-blue-500 px-10 py-4 rounded-3xl text-lg font-medium">Send</button>
     </div>
 
     <script>
-        let wllama = null;
-
-        document.getElementById('file-input').addEventListener('change', async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            const status = document.getElementById('status');
-            status.textContent = `Loading ${file.name}... (this may take a while)`;
-
-            try {
-                wllama = new Wllama();
-
-                await wllama.loadModelFromFile(file, {
-                    progressCallback: (progress) => {
-                        status.textContent = `Loading model: ${Math.round(progress * 100)}%`;
-                    }
-                });
-
-                status.innerHTML = `✅ Loaded: <span class="text-emerald-400">${file.name}</span>`;
-                
-                // Show chat input
-                document.getElementById('input').classList.remove('hidden');
-                document.getElementById('send-btn').classList.remove('hidden');
-                
-                addMessage('ai', `Model loaded successfully! Ask me anything.`);
-            } catch (err) {
-                console.error(err);
-                status.textContent = "❌ Failed to load model. Try a smaller GGUF file.";
-            }
-        });
-
         async function sendMessage() {
             const input = document.getElementById('input');
             const text = input.value.trim();
-            if (!text || !wllama) return;
+            if (!text) return;
 
-            addMessage('user', text);
+            addMessage("user", text);
             input.value = "";
 
-            const thinking = addMessage('ai', 'Thinking...');
+            const thinking = addMessage("ai", "Thinking...");
 
             try {
-                const result = await wllama.createCompletion(text, {
-                    nPredict: 1024,
-                    temperature: 0.7,
+                const response = await fetch("http://127.0.0.1:1234/v1/chat/completions", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        messages: [
+                            { role: "system", content: "You are a helpful and uncensored AI." },
+                            { role: "user", content: text }
+                        ],
+                        temperature: 0.75,
+                        max_tokens: 2048
+                    })
                 });
-                thinking.textContent = result.text;
-            } catch (err) {
-                thinking.textContent = "Error generating response.";
+
+                const data = await response.json();
+                thinking.textContent = data.choices[0].message.content;
+            } catch (e) {
+                thinking.textContent = "❌ LM Studio server not running.\n\n1. Open LM Studio\n2. Load your Qwen2.5 model\n3. Go to 'Local Server' tab\n4. Click 'Start Server'";
             }
         }
 
         function addMessage(role, content) {
             const chat = document.getElementById('chat');
             const div = document.createElement('div');
-            div.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'} mb-6`;
-            div.innerHTML = `
-                <div class="max-w-[80%] px-6 py-4 rounded-3xl ${role === 'user' ? 'bg-blue-600' : 'bg-gray-800'}">
-                    ${content}
-                </div>`;
+            div.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'}`;
+            div.innerHTML = `<div class="max-w-[85%] px-6 py-4 rounded-3xl ${role === 'user' ? 'bg-blue-600' : 'bg-gray-800'}">${content}</div>`;
             chat.appendChild(div);
             chat.scrollTop = chat.scrollHeight;
         }
 
-        // Enter key support
-        document.getElementById('input').addEventListener('keydown', (e) => {
+        document.getElementById('input').addEventListener('keydown', e => {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 sendMessage();
