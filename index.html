@@ -3,130 +3,197 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Qwen2.5-7B Chat</title>
+    <title>Qwen2.5-7B • Local AI</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', system-ui, sans-serif; }
+        .chat-container { scrollbar-width: thin; scrollbar-color: #4b5563 transparent; }
+        .message-bubble { max-width: 85%; }
+    </style>
 </head>
 <body class="bg-gray-950 text-gray-100 h-screen flex overflow-hidden">
-    <div class="flex h-screen w-full">
-        <!-- Sidebar -->
-        <div class="w-72 bg-gray-900 border-r border-gray-800 flex flex-col">
-            <div class="p-6 border-b border-gray-800">
-                <h1 class="text-2xl font-bold">Qwen2.5-7B</h1>
-                <p class="text-emerald-400 text-sm">Local Model • LM Studio</p>
-            </div>
-            <div class="p-4">
-                <button onclick="newChat()" class="w-full py-3 bg-blue-600 hover:bg-blue-500 rounded-2xl">
-                    New Chat
-                </button>
+
+    <!-- Sidebar -->
+    <div class="w-80 bg-gray-900 border-r border-gray-800 flex flex-col">
+        <div class="p-6 border-b border-gray-800">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-2xl flex items-center justify-center">
+                    <i class="fa-solid fa-brain text-2xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold tracking-tight">Qwen2.5-7B</h1>
+                    <p class="text-emerald-400 text-sm flex items-center gap-1.5">
+                        <span class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span>
+                        Local • Running
+                    </p>
+                </div>
             </div>
         </div>
 
-        <!-- Chat Area -->
-        <div class="flex-1 flex flex-col">
-            <div class="h-14 border-b border-gray-800 bg-gray-900 px-6 flex items-center">
-                <span id="status" class="text-emerald-400">✅ Connected to Local Qwen2.5-7B</span>
-            </div>
+        <div class="p-4">
+            <button onclick="newChat()" 
+                    class="w-full flex items-center justify-center gap-2 bg-white text-gray-900 hover:bg-gray-100 py-3.5 rounded-2xl font-semibold transition">
+                <i class="fa-solid fa-plus"></i>
+                New Chat
+            </button>
+        </div>
 
-            <div id="chat-messages" class="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-950"></div>
+        <div class="px-4 text-xs uppercase tracking-widest text-gray-500 mt-6 mb-2">History</div>
+        <div class="flex-1 overflow-y-auto px-3" id="chat-history">
+            <!-- JS will populate -->
+        </div>
 
-            <div class="p-6 border-t border-gray-800 bg-gray-900">
-                <textarea id="user-input" rows="2" 
-                    class="w-full bg-gray-800 border border-gray-700 rounded-3xl py-5 px-6 resize-none focus:outline-none"
-                    placeholder="Ask anything..."></textarea>
-                <button onclick="sendMessage()" 
-                        class="mt-4 px-10 py-3 bg-blue-600 hover:bg-blue-500 rounded-2xl font-medium">
-                    Send
-                </button>
-            </div>
+        <div class="p-4 border-t border-gray-800 text-xs text-gray-500">
+            Powered by LM Studio + Qwen2.5-7B
         </div>
     </div>
 
-    <script>
-        let chatHistory = [];
+    <!-- Main Chat Area -->
+    <div class="flex-1 flex flex-col">
+        <!-- Header -->
+        <div class="h-16 border-b border-gray-800 bg-gray-900 px-8 flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <h2 id="chat-title" class="font-semibold text-lg">New Conversation</h2>
+            </div>
+            <div class="text-emerald-400 text-sm font-medium flex items-center gap-2">
+                <i class="fa-solid fa-circle"></i> Connected to Local Server
+            </div>
+        </div>
 
-        async function sendMessage() {
-            const input = document.getElementById('user-input');
-            const message = input.value.trim();
-            if (!message) return;
+        <!-- Messages -->
+        <div id="chat-messages" class="flex-1 overflow-y-auto p-8 space-y-8 chat-container bg-gray-950"></div>
 
-            addMessage('user', message);
-            input.value = '';
-
-            const typingId = addTypingIndicator();
-
-            try {
-                const response = await fetch('http://localhost:1234/v1/chat/completions', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        model: "local-model",
-                        messages: [
-                            { role: "system", content: "You are Qwen2.5, a helpful and honest AI." },
-                            ...chatHistory,
-                            { role: "user", content: message }
-                        ],
-                        temperature: 0.7,
-                        max_tokens: 1024
-                    })
-                });
-
-                const data = await response.json();
-                const aiReply = data.choices[0].message.content;
-
-                removeTypingIndicator(typingId);
-                addMessage('ai', aiReply);
-
-                chatHistory.push({ role: "user", content: message });
-                chatHistory.push({ role: "assistant", content: aiReply });
-            } catch (e) {
-                removeTypingIndicator(typingId);
-                addMessage('ai', "Make sure LM Studio server is running on port 1234");
-            }
-        }
-
-        function addMessage(role, content) {
-            const container = document.getElementById('chat-messages');
-            const div = document.createElement('div');
-            div.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'}`;
-            div.innerHTML = `
-                <div class="${role === 'user' ? 'bg-blue-600' : 'bg-gray-700'} max-w-[80%] px-6 py-4 rounded-3xl">
-                    ${content}
+        <!-- Input Area -->
+        <div class="p-8 bg-gray-900 border-t border-gray-800">
+            <div class="max-w-4xl mx-auto">
+                <div class="relative">
+                    <textarea id="user-input" rows="1"
+                        class="w-full bg-gray-800 border border-gray-700 focus:border-violet-500 rounded-3xl py-6 px-8 text-lg resize-none outline-none"
+                        placeholder="Message Qwen2.5..."></textarea>
+                    
+                    <button onclick="sendMessage()" 
+                            class="absolute right-4 bottom-4 bg-violet-600 hover:bg-violet-500 w-11 h-11 rounded-2xl flex items-center justify-center transition">
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </button>
                 </div>
-            `;
-            container.appendChild(div);
-            container.scrollTop = container.scrollHeight;
-        }
+                <p class="text-center text-xs text-gray-500 mt-4">
+                    Running locally via LM Studio • Responses are private
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
 
-        function addTypingIndicator() {
-            const id = 'typing-' + Date.now();
-            const container = document.getElementById('chat-messages');
-            const div = document.createElement('div');
-            div.id = id;
-            div.className = "flex justify-start";
-            div.innerHTML = `<div class="bg-gray-700 px-6 py-4 rounded-3xl">Qwen is thinking...</div>`;
-            container.appendChild(div);
-            container.scrollTop = container.scrollHeight;
-            return id;
-        }
+<script>
+    let chatHistory = [];
 
-        function removeTypingIndicator(id) {
-            const el = document.getElementById(id);
-            if (el) el.remove();
-        }
+    async function sendMessage() {
+        const input = document.getElementById('user-input');
+        const message = input.value.trim();
+        if (!message) return;
 
-        function newChat() {
-            chatHistory = [];
-            document.getElementById('chat-messages').innerHTML = '';
-        }
+        addMessage('user', message);
+        input.value = '';
 
-        // Enter key support
-        document.getElementById('user-input').addEventListener('keydown', e => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendMessage();
-            }
-        });
-    </script>
+        const typingId = addTypingIndicator();
+
+        try {
+            const response = await fetch('http://localhost:1234/v1/chat/completions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model: "local-model",
+                    messages: [
+                        { role: "system", content: "You are Qwen2.5-7B-Instruct, a helpful, honest, and intelligent AI assistant." },
+                        ...chatHistory,
+                        { role: "user", content: message }
+                    ],
+                    temperature: 0.7,
+                    max_tokens: 2048
+                })
+            });
+
+            if (!response.ok) throw new Error("Server error");
+
+            const data = await response.json();
+            const aiReply = data.choices[0].message.content;
+
+            removeTypingIndicator(typingId);
+            addMessage('ai', aiReply);
+
+            chatHistory.push({ role: "user", content: message });
+            chatHistory.push({ role: "assistant", content: aiReply });
+        } catch (err) {
+            removeTypingIndicator(typingId);
+            addMessage('ai', "❌ Could not connect to LM Studio.<br>Make sure the server is running on port 1234.");
+        }
+    }
+
+    function addMessage(role, content) {
+        const container = document.getElementById('chat-messages');
+        const div = document.createElement('div');
+        div.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'}`;
+        div.innerHTML = `
+            <div class="${role === 'user' ? 'bg-violet-600 text-white' : 'bg-gray-800'} message-bubble px-6 py-4 rounded-3xl">
+                ${content}
+            </div>
+        `;
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+    }
+
+    function addTypingIndicator() {
+        const id = 'typing-' + Date.now();
+        const container = document.getElementById('chat-messages');
+        const div = document.createElement('div');
+        div.id = id;
+        div.className = "flex justify-start";
+        div.innerHTML = `
+            <div class="bg-gray-800 px-6 py-4 rounded-3xl flex items-center gap-2">
+                <span>Qwen is thinking</span>
+                <span class="animate-pulse">...</span>
+            </div>
+        `;
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+        return id;
+    }
+
+    function removeTypingIndicator(id) {
+        const el = document.getElementById(id);
+        if (el) el.remove();
+    }
+
+    function newChat() {
+        chatHistory = [];
+        document.getElementById('chat-messages').innerHTML = `
+            <div class="text-center pt-20">
+                <div class="w-20 h-20 mx-auto bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-3xl flex items-center justify-center mb-6">
+                    <i class="fa-solid fa-brain text-5xl text-white"></i>
+                </div>
+                <h2 class="text-4xl font-semibold mb-3">Hello! 👋</h2>
+                <p class="text-gray-400 text-lg">How can I help you today?</p>
+            </div>
+        `;
+    }
+
+    // Keyboard support
+    document.getElementById('user-input').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
+    });
+
+    // Auto-resize textarea
+    document.getElementById('user-input').addEventListener('input', function () {
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 180) + 'px';
+    });
+
+    // Start with welcome
+    window.onload = newChat;
+</script>
 </body>
 </html>
