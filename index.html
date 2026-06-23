@@ -3,62 +3,59 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Qwen2.5 Large GGUF Chat</title>
+    <title>Qwen2.5-7B GGUF (Split Support)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@wllama/wllama@latest/dist/wllama.js"></script>
 </head>
 <body class="bg-gray-950 text-gray-100 h-screen flex flex-col">
     <div class="p-6 bg-gray-900 border-b border-gray-800">
         <h1 class="text-3xl font-bold">Qwen2.5-7B GGUF Loader</h1>
-        <p id="status" class="text-yellow-400 mt-2">Select your GGUF file (Supports 5GB+ files)</p>
-        <p class="text-red-400 text-sm mt-1">⚠️ Warning: 7B models need a lot of RAM. May crash if your PC has less than 24GB RAM.</p>
+        <p id="status" class="text-yellow-400 mt-2">Select your GGUF file(s) — supports split models up to 8GB+</p>
     </div>
 
     <div class="flex-1 p-6 overflow-auto" id="chat"></div>
 
     <div class="p-6 bg-gray-900 border-t border-gray-800">
-        <input type="file" id="file-input" accept=".gguf" class="hidden">
+        <input type="file" id="file-input" accept=".gguf" multiple class="hidden">
         
         <button onclick="document.getElementById('file-input').click()" 
                 class="bg-blue-600 hover:bg-blue-500 px-8 py-4 rounded-2xl text-lg font-medium w-full mb-4">
-            📁 Select GGUF File (up to 8GB+)
+            📁 Select GGUF File(s) — Single or Split
         </button>
         
         <textarea id="input" rows="3" class="w-full bg-gray-800 rounded-3xl p-5 hidden" placeholder="Type your message..."></textarea>
-        <button onclick="sendMessage()" id="send-btn" class="mt-3 bg-blue-600 hover:bg-blue-500 px-10 py-4 rounded-2xl hidden w-full">Send Message</button>
+        <button onclick="sendMessage()" id="send-btn" class="mt-3 bg-blue-600 hover:bg-blue-500 px-10 py-4 rounded-2xl hidden w-full">Send</button>
     </div>
 
     <script>
         let wllama = null;
 
         document.getElementById('file-input').addEventListener('change', async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
 
             const status = document.getElementById('status');
-            status.innerHTML = `Loading <span class="text-blue-400">${file.name}</span><br><span class="text-xs">Size: ${(file.size / (1024*1024*1024)).toFixed(2)} GB</span>`;
+            status.textContent = `Loading ${files.length} file(s)...`;
 
             try {
                 wllama = new Wllama();
 
-                await wllama.loadModelFromFile(file, {
+                await wllama.loadModelFromFiles(files, {
                     progressCallback: (progress) => {
-                        status.textContent = `Loading model: ${Math.round(progress * 100)}%`;
+                        status.textContent = `Loading: ${Math.round(progress * 100)}%`;
                     },
-                    // Increased limits for large files
-                    contextLength: 8192,
+                    contextLength: 4096,   // Lower for large models
                 });
 
-                status.innerHTML = `✅ Loaded: <span class="text-emerald-400">${file.name}</span> (${(file.size / (1024*1024*1024)).toFixed(2)} GB)`;
+                status.innerHTML = `✅ Loaded ${files[0].name} successfully!`;
 
-                // Show chat interface
                 document.getElementById('input').classList.remove('hidden');
                 document.getElementById('send-btn').classList.remove('hidden');
                 
-                addMessage('ai', `Model loaded successfully! (${file.name})<br>I'm running completely locally. No tokens, no cost.`);
+                addMessage('ai', "Model loaded! Running fully locally. No tokens, no limits.");
             } catch (err) {
                 console.error(err);
-                status.innerHTML = `❌ Failed to load.<br>Try a Q4_K_M version or make sure you have enough RAM (24GB+ recommended).`;
+                status.innerHTML = `❌ Failed.<br>Try splitting your GGUF into parts under 2GB each using llama-gguf-split.`;
             }
         });
 
@@ -74,13 +71,12 @@
 
             try {
                 const result = await wllama.createCompletion(text, {
-                    nPredict: 1024,
+                    nPredict: 768,
                     temperature: 0.7,
-                    topP: 0.9,
                 });
                 thinking.textContent = result.text;
             } catch (err) {
-                thinking.textContent = "Error during generation. Your PC might be running out of memory.";
+                thinking.textContent = "Out of memory or error during generation.";
             }
         }
 
@@ -96,7 +92,6 @@
             chat.scrollTop = chat.scrollHeight;
         }
 
-        // Enter key support
         document.getElementById('input').addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
