@@ -6,115 +6,82 @@
     <title>Qwen2.5-7B Chat</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2.XX"></script> <!-- Check latest version on npm -->
-    <style>
-        body { font-family: 'Inter', system-ui, sans-serif; }
-        .chat-container::-webkit-scrollbar { width: 6px; }
-        .chat-container::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 20px; }
-    </style>
 </head>
 <body class="bg-gray-950 text-gray-100 h-screen flex overflow-hidden">
     <div class="flex h-screen w-full">
-        <!-- Sidebar (same as before) -->
+        <!-- Sidebar -->
         <div class="w-72 bg-gray-900 border-r border-gray-800 flex flex-col">
-            <div class="p-4 border-b border-gray-800">
-                <div class="flex items-center gap-3">
-                    <div class="w-9 h-9 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-2xl flex items-center justify-center">
-                        <i class="fa-solid fa-robot text-white"></i>
-                    </div>
-                    <div>
-                        <h1 class="text-2xl font-bold">Qwen2.5-7B</h1>
-                        <p class="text-xs text-emerald-400">Running locally in browser</p>
-                    </div>
-                </div>
+            <div class="p-6 border-b border-gray-800">
+                <h1 class="text-2xl font-bold">Qwen2.5-7B</h1>
+                <p class="text-emerald-400 text-sm">Local Model • LM Studio</p>
             </div>
             <div class="p-4">
-                <button onclick="newChat()" class="w-full py-3 bg-blue-600 hover:bg-blue-500 rounded-2xl font-medium flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-plus"></i> New Chat
+                <button onclick="newChat()" class="w-full py-3 bg-blue-600 hover:bg-blue-500 rounded-2xl">
+                    New Chat
                 </button>
             </div>
-            <div class="flex-1 p-3 overflow-y-auto" id="history"></div>
         </div>
 
-        <!-- Main Chat -->
+        <!-- Chat Area -->
         <div class="flex-1 flex flex-col">
-            <div class="h-14 border-b border-gray-800 bg-gray-900 px-6 flex items-center justify-between">
-                <div class="font-medium flex items-center gap-3">
-                    Qwen2.5-7B-Instruct
-                    <span id="status" class="text-xs px-3 py-1 bg-gray-800 rounded-full text-emerald-400">Loading model...</span>
-                </div>
+            <div class="h-14 border-b border-gray-800 bg-gray-900 px-6 flex items-center">
+                <span id="status" class="text-emerald-400">✅ Connected to Local Qwen2.5-7B</span>
             </div>
 
-            <div id="chat-messages" class="flex-1 overflow-y-auto p-6 space-y-8 chat-container bg-gray-950"></div>
+            <div id="chat-messages" class="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-950"></div>
 
             <div class="p-6 border-t border-gray-800 bg-gray-900">
-                <div class="max-w-3xl mx-auto">
-                    <textarea id="user-input" rows="1"
-                        class="w-full bg-gray-800 border border-gray-700 focus:border-blue-500 rounded-3xl py-5 px-7 resize-none text-base"
-                        placeholder="Ask Qwen2.5 anything..."></textarea>
-                    <button onclick="sendMessage()" 
-                            class="mt-3 bg-blue-600 hover:bg-blue-500 px-8 py-3 rounded-2xl font-medium">
-                        Send
-                    </button>
-                </div>
+                <textarea id="user-input" rows="2" 
+                    class="w-full bg-gray-800 border border-gray-700 rounded-3xl py-5 px-6 resize-none focus:outline-none"
+                    placeholder="Ask anything..."></textarea>
+                <button onclick="sendMessage()" 
+                        class="mt-4 px-10 py-3 bg-blue-600 hover:bg-blue-500 rounded-2xl font-medium">
+                    Send
+                </button>
             </div>
         </div>
     </div>
 
     <script>
-        let engine = null;
         let chatHistory = [];
-
-        const modelId = "Qwen2.5-7B-Instruct-q4f32_1-MLC"; // Good balance for 7B
-
-        async function initWebLLM() {
-            const status = document.getElementById('status');
-            
-            try {
-                engine = await webllm.createMLCEngine(modelId, {
-                    initProgressCallback: (report) => {
-                        status.textContent = `Loading: ${report.progress.toFixed(1)}%`;
-                    }
-                });
-
-                status.innerHTML = `✅ Ready • Qwen2.5-7B`;
-                addMessage('ai', "Hello! I'm Qwen2.5-7B running entirely in your browser. How can I help you today?");
-            } catch (err) {
-                console.error(err);
-                status.textContent = "❌ Failed to load model";
-            }
-        }
 
         async function sendMessage() {
             const input = document.getElementById('user-input');
-            const text = input.value.trim();
-            if (!text || !engine) return;
+            const message = input.value.trim();
+            if (!message) return;
 
-            addMessage('user', text);
+            addMessage('user', message);
             input.value = '';
 
             const typingId = addTypingIndicator();
 
             try {
-                const reply = await engine.chat.completions.create({
-                    messages: [
-                        { role: "system", content: "You are Qwen2.5, a helpful, honest, and harmless AI assistant." },
-                        ...chatHistory,
-                        { role: "user", content: text }
-                    ],
-                    temperature: 0.7,
-                    max_gen_len: 1024
+                const response = await fetch('http://localhost:1234/v1/chat/completions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        model: "local-model",
+                        messages: [
+                            { role: "system", content: "You are Qwen2.5, a helpful and honest AI." },
+                            ...chatHistory,
+                            { role: "user", content: message }
+                        ],
+                        temperature: 0.7,
+                        max_tokens: 1024
+                    })
                 });
 
+                const data = await response.json();
+                const aiReply = data.choices[0].message.content;
+
                 removeTypingIndicator(typingId);
-                const aiReply = reply.choices[0].message.content;
                 addMessage('ai', aiReply);
 
-                chatHistory.push({ role: "user", content: text });
+                chatHistory.push({ role: "user", content: message });
                 chatHistory.push({ role: "assistant", content: aiReply });
             } catch (e) {
                 removeTypingIndicator(typingId);
-                addMessage('ai', "Error generating response.");
+                addMessage('ai', "Make sure LM Studio server is running on port 1234");
             }
         }
 
@@ -123,7 +90,7 @@
             const div = document.createElement('div');
             div.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'}`;
             div.innerHTML = `
-                <div class="${role === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-800'} max-w-[75%] px-6 py-4 rounded-3xl">
+                <div class="${role === 'user' ? 'bg-blue-600' : 'bg-gray-700'} max-w-[80%] px-6 py-4 rounded-3xl">
                     ${content}
                 </div>
             `;
@@ -137,7 +104,7 @@
             const div = document.createElement('div');
             div.id = id;
             div.className = "flex justify-start";
-            div.innerHTML = `<div class="bg-gray-800 px-6 py-4 rounded-3xl">Thinking<span class="animate-pulse">...</span></div>`;
+            div.innerHTML = `<div class="bg-gray-700 px-6 py-4 rounded-3xl">Qwen is thinking...</div>`;
             container.appendChild(div);
             container.scrollTop = container.scrollHeight;
             return id;
@@ -151,19 +118,15 @@
         function newChat() {
             chatHistory = [];
             document.getElementById('chat-messages').innerHTML = '';
-            addMessage('ai', "New chat started. How can I assist you?");
         }
 
-        // Keyboard support
-        document.getElementById('user-input').addEventListener('keydown', (e) => {
+        // Enter key support
+        document.getElementById('user-input').addEventListener('keydown', e => {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 sendMessage();
             }
         });
-
-        // Start everything
-        window.onload = initWebLLM;
     </script>
 </body>
 </html>
