@@ -3,151 +3,76 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My AI - Qwen2.5-7B</title>
+    <title>Free Local Qwen</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <style>
-        body { font-family: 'Inter', system-ui, sans-serif; }
-        .chat-container::-webkit-scrollbar { width: 6px; }
-        .chat-container::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 20px; }
-    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2"></script>
 </head>
-<body class="bg-gray-950 text-gray-100 h-screen flex overflow-hidden">
-
-    <!-- Sidebar -->
-    <div class="w-72 bg-gray-900 border-r border-gray-800 flex flex-col">
-        <div class="p-6 border-b border-gray-800">
-            <div class="flex items-center gap-3">
-                <div class="w-9 h-9 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center">
-                    <i class="fa-solid fa-brain"></i>
-                </div>
-                <h1 class="text-2xl font-bold">My AI</h1>
-            </div>
-            <p class="text-xs text-emerald-400 mt-1">Qwen2.5-7B Local</p>
-        </div>
-
-        <div class="p-4">
-            <button onclick="newChat()" class="w-full py-3.5 bg-white text-black rounded-2xl font-semibold flex items-center justify-center gap-2 hover:bg-gray-100">
-                <i class="fa-solid fa-plus"></i> New Chat
-            </button>
-        </div>
+<body class="bg-gray-950 text-gray-100 h-screen flex flex-col">
+    <div class="p-6 bg-gray-900 border-b border-gray-800">
+        <h1 class="text-2xl font-bold">Qwen2.5 Local (Free)</h1>
+        <p id="status" class="text-yellow-400 mt-1">Loading model...</p>
     </div>
 
-    <!-- Main Area -->
-    <div class="flex-1 flex flex-col">
-        <div class="h-16 bg-gray-900 border-b border-gray-800 px-8 flex items-center justify-between">
-            <h2 class="font-medium">Qwen2.5-7B Instruct</h2>
-            <div id="status" class="text-sm px-4 py-1 bg-gray-800 rounded-full">Not Connected</div>
-        </div>
+    <div id="chat" class="flex-1 overflow-auto p-6 space-y-8"></div>
 
-        <div id="chat-messages" class="flex-1 overflow-y-auto p-8 space-y-8 chat-container bg-gray-950"></div>
-
-        <div class="p-8 bg-gray-900 border-t border-gray-800">
-            <div class="max-w-3xl mx-auto">
-                <textarea id="user-input" rows="1" 
-                    class="w-full bg-gray-800 border border-gray-700 rounded-3xl py-6 px-8 resize-none focus:border-purple-500 outline-none text-lg"
-                    placeholder="Send a message..."></textarea>
-                <button onclick="sendMessage()" 
-                        class="mt-4 bg-purple-600 hover:bg-purple-500 px-10 py-3 rounded-2xl font-medium">
-                    Send
-                </button>
-            </div>
-        </div>
+    <div class="p-6 bg-gray-900 border-t border-gray-800">
+        <textarea id="input" rows="2" class="w-full bg-gray-800 border border-gray-700 rounded-3xl p-5 focus:outline-none focus:border-blue-500" placeholder="Type here..."></textarea>
+        <button onclick="sendMessage()" class="mt-4 bg-blue-600 hover:bg-blue-500 px-8 py-3 rounded-2xl">Send</button>
     </div>
 
-<script>
-    let chatHistory = [];
+    <script>
+        let generator = null;
 
-    async function sendMessage() {
-        const input = document.getElementById('user-input');
-        const msg = input.value.trim();
-        if (!msg) return;
+        async function loadModel() {
+            const status = document.getElementById('status');
+            try {
+                status.textContent = "Downloading model (~1.5GB, first time only)...";
 
-        addMessage('user', msg);
-        input.value = '';
+                generator = await pipeline('text-generation', 'Xenova/Qwen2.5-3B-Instruct', {
+                    device: 'webgpu',
+                    dtype: 'q4',
+                    progress_callback: (data) => {
+                        if (data.progress) status.textContent = `Loading: ${Math.round(data.progress)}%`;
+                    }
+                });
 
-        const typingId = addTypingIndicator();
-
-        try {
-            const res = await fetch('http://127.0.0.1:1234/v1/chat/completions', {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    messages: [
-                        { role: "system", content: "You are a helpful, intelligent, and friendly AI assistant." },
-                        ...chatHistory,
-                        { role: "user", content: msg }
-                    ],
-                    temperature: 0.7,
-                    max_tokens: 2048
-                })
-            });
-
-            const data = await res.json();
-            const reply = data.choices[0].message.content;
-
-            removeTypingIndicator(typingId);
-            addMessage('ai', reply);
-
-            chatHistory.push({ role: "user", content: msg });
-            chatHistory.push({ role: "assistant", content: reply });
-            document.getElementById('status').innerHTML = '✅ Connected';
-        } catch (e) {
-            removeTypingIndicator(typingId);
-            addMessage('ai', `<strong>Connection Failed</strong><br><br>Make sure LM Studio server is running and CORS is enabled.`);
-            document.getElementById('status').innerHTML = '❌ Not Connected';
+                status.textContent = "✅ Model Ready - No tokens, completely free";
+                addMessage("ai", "Hello! I'm running locally. No API costs. Ask me anything.");
+            } catch (e) {
+                console.error(e);
+                status.textContent = "❌ Error. Try Chrome and refresh.";
+            }
         }
-    }
 
-    function addMessage(role, content) {
-        const container = document.getElementById('chat-messages');
-        const div = document.createElement('div');
-        div.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'}`;
-        div.innerHTML = `
-            <div class="${role === 'user' ? 'bg-purple-600' : 'bg-gray-800'} px-6 py-4 rounded-3xl max-w-[80%]">
-                ${content}
-            </div>
-        `;
-        container.appendChild(div);
-        container.scrollTop = container.scrollHeight;
-    }
+        async function sendMessage() {
+            const input = document.getElementById('input');
+            const text = input.value.trim();
+            if (!text || !generator) return;
 
-    function addTypingIndicator() {
-        const id = 'typing-' + Date.now();
-        const container = document.getElementById('chat-messages');
-        const div = document.createElement('div');
-        div.id = id;
-        div.className = "flex justify-start";
-        div.innerHTML = `<div class="bg-gray-800 px-6 py-4 rounded-3xl">Thinking<span class="animate-pulse">...</span></div>`;
-        container.appendChild(div);
-        container.scrollTop = container.scrollHeight;
-        return id;
-    }
+            addMessage("user", text);
+            input.value = "";
 
-    function removeTypingIndicator(id) {
-        const el = document.getElementById(id);
-        if (el) el.remove();
-    }
+            const thinking = addMessage("ai", "Thinking...");
 
-    function newChat() {
-        chatHistory = [];
-        document.getElementById('chat-messages').innerHTML = `
-            <div class="max-w-2xl mx-auto text-center mt-20">
-                <div class="text-6xl mb-6">👋</div>
-                <h2 class="text-4xl font-bold mb-3">Hello there!</h2>
-                <p class="text-gray-400">I'm running locally on your computer.</p>
-            </div>
-        `;
-    }
-
-    document.getElementById('user-input').addEventListener('keydown', e => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            sendMessage();
+            try {
+                const output = await generator(text, { max_new_tokens: 512, temperature: 0.7 });
+                thinking.textContent = output[0].generated_text;
+            } catch (err) {
+                thinking.textContent = "Error generating response.";
+            }
         }
-    });
 
-    window.onload = newChat;
-</script>
+        function addMessage(role, content) {
+            const chat = document.getElementById('chat');
+            const div = document.createElement('div');
+            div.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'}`;
+            div.innerHTML = `<div class="max-w-[80%] px-6 py-4 rounded-3xl ${role === 'user' ? 'bg-blue-600' : 'bg-gray-800'}">${content}</div>`;
+            chat.appendChild(div);
+            chat.scrollTop = chat.scrollHeight;
+            return div.querySelector('div');
+        }
+
+        window.onload = loadModel;
+    </script>
 </body>
 </html>
